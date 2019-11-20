@@ -1,10 +1,21 @@
--- For each country calculate the total spending for each customer, and 
--- include a column (called 'difference') showing how much more each customer 
--- spent compared to the next highest spender in that country. 
--- For the 'difference' column, fill any nulls with zero.
--- ROUND your all of your results to the next penny.
+WITH spending_diff AS 
+	(SELECT 
+	customerid,
+	dollar_spent,
+	COALESCE (LEAD(dollar_spent,1) OVER (PARTITION BY country ORDER BY dollar_spent DESC),0) AS next_highest_spender,
+	country
+	FROM 
+		(SELECT 
+		c.customerid,
+		SUM(od.unitprice * od.quantity) AS dollar_spent,
+		c.country
+		FROM customers c
+		INNER JOIN orders o ON c.customerid = o.customerid
+		INNER JOIN orderdetails od ON od.orderid = o.orderid
+		GROUP BY c.customerid
+		ORDER BY c.country, dollar_spent DESC) AS baseline) 
 
--- hints: 
--- keywords to google - lead, lag, coalesce
--- If rounding isn't working: 
--- https://stackoverflow.com/questions/13113096/how-to-round-an-average-to-2-decimal-places-in-postgresql/20934099
+SELECT 
+*,
+ROUND((dollar_spent - next_highest_spender)::numeric,2) AS difference 
+FROM spending_diff
